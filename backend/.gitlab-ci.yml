@@ -1,0 +1,131 @@
+variables:
+  IMAGE_NAME_BACK: traefik2025back
+  FILE_NAME_BACK: fsci2025-traefik_backend
+
+build_backend_image:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  tags: [rncp,aws,k8s]
+  before_script:
+    - while ! docker info > /dev/null 2>&1; do sleep 1; done
+    - docker info
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+  script:
+    - docker build -t $IMAGE_REPO/$IMAGE_NAME_BACK:$CI_COMMIT_SHORT_SHA ./backend
+    - docker save $IMAGE_REPO/$IMAGE_NAME_BACK:$CI_COMMIT_SHORT_SHA > $FILE_NAME_BACK.tar
+  artifacts:
+    paths:
+      - $FILE_NAME_BACK.tar
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - backend/**
+        - backend/.gitlab-ci.yml
+        - ci-template.yml
+        - .gitlab-ci.yml
+
+push_backend_image:
+  stage: push
+  image: docker:latest
+  services:
+    - docker:dind
+  tags: [rncp,aws,k8s]
+  script:
+    - docker load < $FILE_NAME_BACK.tar
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker push $IMAGE_REPO/$IMAGE_NAME_BACK:$CI_COMMIT_SHORT_SHA
+  dependencies: [build_backend_image]
+  needs: [build_backend_image]
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - backend/**
+        - backend/.gitlab-ci.yml
+        - ci-template.yml
+        - .gitlab-ci.yml
+
+stop_deploy_backend_dev:
+  extends: .stop_template
+  stage: deploy_dev
+  environment:
+    name: dev-$CI_COMMIT_REF_NAME
+    action: stop
+  variables:
+    namespace: $KUBE_NAMESPACE_dev
+
+stop_deploy_backend_staging:
+  extends: .stop_template
+  stage: deploy_staging
+  environment:
+    name: staging
+    action: stop
+  variables:
+    namespace: $KUBE_NAMESPACE_staging
+
+stop_deploy_backend_prod:
+  extends: .stop_template
+  stage: deploy_prod
+  environment:
+    name: prod
+    action: stop
+  variables:
+    namespace: $KUBE_NAMESPACE_prod
+
+deploy_backend_dev:
+  extends: .deploy_template
+  stage: deploy_dev
+  variables:
+    namespace: $KUBE_NAMESPACE_dev
+    imagename: $IMAGE_NAME_BACK
+  environment:
+    name: dev-$CI_COMMIT_REF_NAME
+    on_stop: stop_deploy_backend_dev
+  needs: [push_backend_image]
+  when: on_success
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - backend/**
+        - backend/.gitlab-ci.yml
+        - ci-template.yml
+        - .gitlab-ci.yml
+
+deploy_backend_staging:
+  extends: .deploy_template
+  stage: deploy_staging
+  variables:
+    namespace: $KUBE_NAMESPACE_staging
+    imagename: $IMAGE_NAME_BACK
+  environment:
+    name: staging
+    on_stop: stop_deploy_backend_staging
+  needs: [deploy_backend_dev]
+  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - backend/**
+        - backend/.gitlab-ci.yml
+        - ci-template.yml
+        - .gitlab-ci.yml
+
+deploy_backend_prod:
+  extends: .deploy_template
+  stage: deploy_prod
+  variables:
+    namespace: $KUBE_NAMESPACE_prod
+    imagename: $IMAGE_NAME_BACK
+  environment:
+    name: prod
+    on_stop: stop_deploy_backend_prod
+  needs: [deploy_backend_staging]
+  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - backend/**
+        - backend/.gitlab-ci.yml
+        - ci-template.yml
+        - .gitlab-ci.yml

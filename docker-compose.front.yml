@@ -1,0 +1,12 @@
+services:
+  frontend:
+    image: '${DOCKER_IMAGE_FRONTEND}:${TAG-latest}'
+    restart: always
+    networks:
+      - traefik-public
+      - default
+    build:
+      context: ./frontend
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - VITE_API_URL=${VITE_API_URL}

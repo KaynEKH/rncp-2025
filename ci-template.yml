@@ -1,0 +1,36 @@
+.stop_template:
+  when: manual
+  script:
+    - helm uninstall app -n $namespace
+  tags: [rncp,aws,k8s]
+  allow_failure: true
+
+.deploy_template:
+  image: alpine/k8s:1.27.4
+  tags: [rncp,aws,k8s]
+  before_script:
+    - apk add --no-cache git aws-cli curl jq
+    - aws sts get-caller-identity
+    - aws eks update-kubeconfig --region "$EKS_REGION" --name "$EKS_CLUSTER_NAME"
+    - aws eks wait cluster-active --region "$EKS_REGION" --name "$EKS_CLUSTER_NAME"
+    - git clone https://${DEPLOY_USER}:${DEPLOY_TOKEN}@$REPO_INFRA /charts
+    - kubectl get nodes
+  script:
+    - |
+      set_database_data=""
+      set_vite_api_url=""
+      if [ -n "$imagename" ] && [ "$imagename" = "traefik2025back" ]; then
+        set_database_data="--set database.password=$DB_PASSWORD --set database.superuserid=$SUPERUSER_ID --set database.superuserpwd=$SUPERUSER_PASSWORD --set env.corsorigins=$CORS_ORIGINS"
+      elif [ -n "$imagename" ] && [ "$imagename" = "traefik2025front" ]; then
+        set_vite_api_url="--set env.viteApiUrl=$vite_api_url"
+      fi
+    - |
+      helm upgrade --install $imagename /charts/helm/$imagename \
+        --namespace $namespace \
+        --create-namespace \
+        --values /charts/helm/$imagename/values-$namespace.yaml \
+        --set image.repository=$IMAGE_REPO/$imagename \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.node-env=$namespace \
+        $set_database_data \
+        $set_vite_api_url

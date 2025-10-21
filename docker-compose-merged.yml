@@ -1,0 +1,370 @@
+name: rncp-fastapi-traefik
+services:
+  adminer:
+    depends_on:
+      db:
+        condition: service_started
+        required: true
+    environment:
+      ADMINER_DESIGN: pepa-linha-dark
+    image: adminer
+    labels:
+      traefik.constraint-label: traefik-public
+      traefik.docker.network: traefik-public
+      traefik.enable: "true"
+      traefik.http.routers.rncp-traefik-2025-adminer-http.entrypoints: http
+      traefik.http.routers.rncp-traefik-2025-adminer-http.middlewares: https-redirect
+      traefik.http.routers.rncp-traefik-2025-adminer-http.rule: Host(`adminer.localhost`)
+      traefik.http.routers.rncp-traefik-2025-adminer-https.entrypoints: https
+      traefik.http.routers.rncp-traefik-2025-adminer-https.rule: Host(`adminer.localhost`)
+      traefik.http.routers.rncp-traefik-2025-adminer-https.tls: "true"
+      traefik.http.routers.rncp-traefik-2025-adminer-https.tls.certresolver: le
+      traefik.http.services.rncp-traefik-2025-adminer.loadbalancer.server.port: "8080"
+    networks:
+      default: null
+      traefik-public: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: "no"
+  backend:
+    build:
+      context: /home/scorne/git/rncp-fastapi-traefik/backend
+      dockerfile: Dockerfile
+    develop:
+      watch:
+        - path: /home/scorne/git/rncp-fastapi-traefik/backend
+          action: sync
+          target: /app
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: /home/scorne/git/rncp-fastapi-traefik/backend/pyproject.toml
+          action: rebuild
+    command:
+      - fastapi
+      - run
+      - --reload
+      - app/main.py
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+        required: true
+      prestart:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      BACKEND_CORS_ORIGINS: http://localhost:5173,https://localhost:5173
+      DOCKER_IMAGE_BACKEND: fsci2025/rncpback2025-arm64
+      DOCKER_IMAGE_FRONTEND: fsci2025/rncpfront2025-arm64
+      DOMAIN: localhost
+      EMAILS_FROM_EMAIL: noreply@example.com
+      ENVIRONMENT: local
+      FIRST_SUPERUSER: rncp.fastapi.traefik@gmail.com
+      FIRST_SUPERUSER_PASSWORD: FabSebCleIsm2025!
+      FRONTEND_HOST: http://localhost:5173
+      MAILCATCHER_HOST: http://localhost:1080
+      NODE_ENV: local
+      PLAYWRIGHT_HTML_HOST: 0.0.0.0
+      POSTGRES_DB: traefik2025
+      POSTGRES_PASSWORD: FabSebCleIsm2025!
+      POSTGRES_PORT: "5432"
+      POSTGRES_SERVER: db
+      POSTGRES_USER: fsci2025
+      PROJECT_NAME: RNCP Traefik 2025
+      SECRET_KEY: -TGiInpp2qT0DTr902T98ygr5dWR5bCOSeOibKgDINg
+      SENTRY_DSN: ""
+      SMTP_HOST: mailcatcher
+      SMTP_PASSWORD: yuso ofjf fisu ebcu
+      SMTP_PORT: "1025"
+      SMTP_SSL: "False"
+      SMTP_TLS: "false"
+      SMTP_USER: rncp.fastapi.traefik@gmail.com
+      STACK_NAME: rncp-traefik-2025
+      VITE_API_URL: http://localhost:8000
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/api/v1/utils/health-check/
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: fsci2025/rncpback2025-arm64:latest
+    labels:
+      traefik.constraint-label: traefik-public
+      traefik.docker.network: traefik-public
+      traefik.enable: "true"
+      traefik.http.routers.rncp-traefik-2025-backend-http.entrypoints: http
+      traefik.http.routers.rncp-traefik-2025-backend-http.middlewares: https-redirect
+      traefik.http.routers.rncp-traefik-2025-backend-http.rule: Host(`api.localhost`)
+      traefik.http.routers.rncp-traefik-2025-backend-https.entrypoints: https
+      traefik.http.routers.rncp-traefik-2025-backend-https.rule: Host(`api.localhost`)
+      traefik.http.routers.rncp-traefik-2025-backend-https.tls: "true"
+      traefik.http.routers.rncp-traefik-2025-backend-https.tls.certresolver: le
+      traefik.http.services.rncp-traefik-2025-backend.loadbalancer.server.port: "8000"
+    networks:
+      default: null
+      traefik-public: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "8000"
+        protocol: tcp
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /home/scorne/git/rncp-fastapi-traefik/backend/htmlcov
+        target: /app/htmlcov
+        bind:
+          create_host_path: true
+  db:
+    environment:
+      BACKEND_CORS_ORIGINS: http://localhost:5173,https://localhost:5173
+      DOCKER_IMAGE_BACKEND: fsci2025/rncpback2025-arm64
+      DOCKER_IMAGE_FRONTEND: fsci2025/rncpfront2025-arm64
+      DOMAIN: localhost
+      EMAILS_FROM_EMAIL: rncp.fastapi.traefik@gmail.com
+      ENVIRONMENT: local
+      FIRST_SUPERUSER: rncp.fastapi.traefik@gmail.com
+      FIRST_SUPERUSER_PASSWORD: FabSebCleIsm2025!
+      FRONTEND_HOST: http://localhost:5173
+      MAILCATCHER_HOST: http://localhost:1080
+      NODE_ENV: local
+      PGDATA: /var/lib/postgresql/data/pgdata
+      PLAYWRIGHT_HTML_HOST: 0.0.0.0
+      POSTGRES_DB: traefik2025
+      POSTGRES_PASSWORD: FabSebCleIsm2025!
+      POSTGRES_PORT: "5432"
+      POSTGRES_SERVER: db
+      POSTGRES_USER: fsci2025
+      PROJECT_NAME: RNCP Traefik 2025
+      SECRET_KEY: -TGiInpp2qT0DTr902T98ygr5dWR5bCOSeOibKgDINg
+      SENTRY_DSN: ""
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PASSWORD: yuso ofjf fisu ebcu
+      SMTP_PORT: "465"
+      SMTP_SSL: "False"
+      SMTP_TLS: "True"
+      SMTP_USER: rncp.fastapi.traefik@gmail.com
+      STACK_NAME: rncp-traefik-2025
+      VITE_API_URL: http://localhost:8000
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U fsci2025 -d traefik2025
+      timeout: 10s
+      interval: 10s
+      retries: 5
+      start_period: 30s
+    image: postgres:12
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "5432"
+        protocol: tcp
+    restart: "no"
+    volumes:
+      - type: volume
+        source: app-db-data
+        target: /var/lib/postgresql/data/pgdata
+        volume: {}
+  frontend:
+    build:
+      context: /home/scorne/git/rncp-fastapi-traefik/frontend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: local
+        VITE_API_URL: http://localhost:8000
+    image: fsci2025/rncpfront2025-arm64:latest
+    labels:
+      traefik.constraint-label: traefik-public
+      traefik.docker.network: traefik-public
+      traefik.enable: "true"
+      traefik.http.routers.rncp-traefik-2025-frontend-http.entrypoints: http
+      traefik.http.routers.rncp-traefik-2025-frontend-http.middlewares: https-redirect
+      traefik.http.routers.rncp-traefik-2025-frontend-http.rule: Host(`dashboard.localhost`)
+      traefik.http.routers.rncp-traefik-2025-frontend-https.entrypoints: https
+      traefik.http.routers.rncp-traefik-2025-frontend-https.rule: Host(`dashboard.localhost`)
+      traefik.http.routers.rncp-traefik-2025-frontend-https.tls: "true"
+      traefik.http.routers.rncp-traefik-2025-frontend-https.tls.certresolver: le
+      traefik.http.services.rncp-traefik-2025-frontend.loadbalancer.server.port: "80"
+    networks:
+      default: null
+      traefik-public: null
+    ports:
+      - mode: ingress
+        target: 80
+        published: "5173"
+        protocol: tcp
+    restart: "no"
+  mailcatcher:
+    image: schickling/mailcatcher
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 1080
+        published: "1080"
+        protocol: tcp
+      - mode: ingress
+        target: 1025
+        published: "1025"
+        protocol: tcp
+  playwright:
+    build:
+      context: /home/scorne/git/rncp-fastapi-traefik/frontend
+      dockerfile: Dockerfile.playwright
+      args:
+        NODE_ENV: local
+        VITE_API_URL: http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_started
+        required: true
+      mailcatcher:
+        condition: service_started
+        required: true
+    environment:
+      BACKEND_CORS_ORIGINS: http://localhost:5173,https://localhost:5173
+      CI: ""
+      DOCKER_IMAGE_BACKEND: fsci2025/rncpback2025-arm64
+      DOCKER_IMAGE_FRONTEND: fsci2025/rncpfront2025-arm64
+      DOMAIN: localhost
+      EMAILS_FROM_EMAIL: rncp.fastapi.traefik@gmail.com
+      ENVIRONMENT: local
+      FIRST_SUPERUSER: rncp.fastapi.traefik@gmail.com
+      FIRST_SUPERUSER_PASSWORD: FabSebCleIsm2025!
+      FRONTEND_HOST: http://localhost:5173
+      MAILCATCHER_HOST: http://localhost:1080
+      NODE_ENV: local
+      PLAYWRIGHT_HTML_HOST: 0.0.0.0
+      POSTGRES_DB: traefik2025
+      POSTGRES_PASSWORD: FabSebCleIsm2025!
+      POSTGRES_PORT: "5432"
+      POSTGRES_SERVER: db
+      POSTGRES_USER: fsci2025
+      PROJECT_NAME: RNCP Traefik 2025
+      SECRET_KEY: -TGiInpp2qT0DTr902T98ygr5dWR5bCOSeOibKgDINg
+      SENTRY_DSN: ""
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PASSWORD: yuso ofjf fisu ebcu
+      SMTP_PORT: "465"
+      SMTP_SSL: "False"
+      SMTP_TLS: "True"
+      SMTP_USER: rncp.fastapi.traefik@gmail.com
+      STACK_NAME: rncp-traefik-2025
+      VITE_API_URL: http://localhost:8000
+    ipc: host
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 9323
+        published: "9323"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /home/scorne/git/rncp-fastapi-traefik/frontend/blob-report
+        target: /app/blob-report
+        bind:
+          create_host_path: true
+      - type: bind
+        source: /home/scorne/git/rncp-fastapi-traefik/frontend/test-results
+        target: /app/test-results
+        bind:
+          create_host_path: true
+  prestart:
+    build:
+      context: /home/scorne/git/rncp-fastapi-traefik/backend
+      dockerfile: Dockerfile
+    command:
+      - bash
+      - scripts/prestart.sh
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+        required: true
+    environment:
+      BACKEND_CORS_ORIGINS: http://localhost:5173,https://localhost:5173
+      DOCKER_IMAGE_BACKEND: fsci2025/rncpback2025-arm64
+      DOCKER_IMAGE_FRONTEND: fsci2025/rncpfront2025-arm64
+      DOMAIN: localhost
+      EMAILS_FROM_EMAIL: rncp.fastapi.traefik@gmail.com
+      ENVIRONMENT: local
+      FIRST_SUPERUSER: rncp.fastapi.traefik@gmail.com
+      FIRST_SUPERUSER_PASSWORD: FabSebCleIsm2025!
+      FRONTEND_HOST: http://localhost:5173
+      MAILCATCHER_HOST: http://localhost:1080
+      NODE_ENV: local
+      PLAYWRIGHT_HTML_HOST: 0.0.0.0
+      POSTGRES_DB: traefik2025
+      POSTGRES_PASSWORD: FabSebCleIsm2025!
+      POSTGRES_PORT: "5432"
+      POSTGRES_SERVER: db
+      POSTGRES_USER: fsci2025
+      PROJECT_NAME: RNCP Traefik 2025
+      SECRET_KEY: -TGiInpp2qT0DTr902T98ygr5dWR5bCOSeOibKgDINg
+      SENTRY_DSN: ""
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PASSWORD: yuso ofjf fisu ebcu
+      SMTP_PORT: "465"
+      SMTP_SSL: "False"
+      SMTP_TLS: "True"
+      SMTP_USER: rncp.fastapi.traefik@gmail.com
+      STACK_NAME: rncp-traefik-2025
+      VITE_API_URL: http://localhost:8000
+    image: fsci2025/rncpback2025-arm64:latest
+    networks:
+      default: null
+      traefik-public: null
+  proxy:
+    command:
+      - --providers.docker
+      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-public`)
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --accesslog
+      - --log
+      - --log.level=DEBUG
+      - --api
+      - --api.insecure=true
+    image: traefik:3.0
+    labels:
+      traefik.constraint-label: traefik-public
+      traefik.enable: "true"
+      traefik.http.middlewares.https-redirect.contenttype.autodetect: "false"
+    networks:
+      default: null
+      traefik-public: null
+    ports:
+      - mode: ingress
+        target: 80
+        published: "80"
+        protocol: tcp
+      - mode: ingress
+        target: 8080
+        published: "8090"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: true
+networks:
+  default:
+    name: rncp-fastapi-traefik_default
+  traefik-public:
+    name: rncp-fastapi-traefik_traefik-public
+volumes:
+  app-db-data:
+    name: rncp-fastapi-traefik_app-db-data

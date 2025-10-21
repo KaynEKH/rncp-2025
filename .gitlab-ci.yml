@@ -1,0 +1,22 @@
+variables:
+  IMAGE_REPO: fsci2025
+  KUBE_NAMESPACE_dev: dev
+  KUBE_NAMESPACE_staging: staging
+  KUBE_NAMESPACE_prod: prod
+  REPO_INFRA: gitlab.com/rncp-devuniversity/rncp-fastapi-traefik-infra.git
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+
+stages:
+  - build
+  - push
+  - deploy_dev
+  - deploy_staging
+  - deploy_prod
+
+include:
+  - local: 'ci-template.yml'
+  - local: 'backend/.gitlab-ci.yml'
+  - local: 'frontend/.gitlab-ci.yml'

@@ -1,0 +1,109 @@
+services:
+  # Local services are available on their ports, but also available on:
+  # http://api.localhost.tiangolo.com: backend
+  # http://dashboard.localhost.tiangolo.com: frontend
+  # etc... 
+  # To enable it, update environment variable DOMAIN in file .env: DOMAIN=localhost.tiangolo.com
+  proxy:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "80:80"
+      - "8080:8080"
+    command:
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - --providers.docker
+      # Add a constraint to only use services with the label for this stack
+      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-public`)
+      # Do not expose all Docker services, only the ones explicitly exposed
+      - --providers.docker.exposedbydefault=false
+      # Create an entrypoint "http" listening on port 80
+      - --entrypoints.http.address=:80
+      # Create an entrypoint "https" listening on port 443
+      - --entrypoints.https.address=:443
+      # Enable the access log, with HTTP requests
+      - --accesslog
+      # Enable the Traefik log, for configurations and errors
+      - --log
+      # Enable debug logging for local development
+      - --log.level=DEBUG
+      # Enable the Dashboard and API
+      - --api
+      # Enable insecure mode for local development
+      - --api.insecure=true
+    labels:  
+      - traefik.http.middlewares.https-redirect.contenttype.autodetect=false # Disable https-redirect middleware for local development
+
+  db:
+    restart: "no"
+
+  adminer:
+    restart: "no"
+
+  backend:
+    restart: "no"
+    command: # command: sleep infinity  # Infinite loop to keep container alive doing nothing
+      - fastapi
+      - run
+      - --reload
+      - "app/main.py"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    # TODO: remove once coverage is done locally
+    volumes:
+      - ./backend/htmlcov:/app/htmlcov
+    environment:
+      SMTP_TLS: false
+      SMTP_SSL: false
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    networks:
+      - traefik-public
+      - default
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
+  frontend:
+    restart: "no"
+
+  playwright:
+    networks:
+      - traefik-public
+      - default
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.playwright
+      args:
+        - NODE_ENV=${ENVIRONMENT?Variable not set}
+        - FRONTEND_API_URL=${FRONTEND_API_URL?Variable not set}
+    ipc: host
+    depends_on:
+      - backend
+      - mailcatcher
+    env_file:
+      - .env
+    environment:
+      - FRONTEND_API_URL=${FRONTEND_API_URL?Variable not set}
+      - MAILCATCHER_HOST=${MAILCATCHER_HOST?Variable not set}
+      # For the reports when run locally
+      - PLAYWRIGHT_HTML_HOST=${PLAYWRIGHT_HTML_HOST?Variable not set}
+      - CI=${CI}
+    volumes:
+      - ./frontend/blob-report:/app/blob-report
+      - ./frontend/test-results:/app/test-results
+    ports:
+      - 9323:9323
+
+networks:
+  traefik-public:
+    external: false # For local dev, don't expect an external Traefik network
